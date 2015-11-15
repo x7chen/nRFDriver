@@ -17,13 +17,9 @@ import android.util.Log;
 import com.x7chen.dev.l58tool.dfu.DfuService;
 
 import java.io.File;
-import java.io.FileFilter;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -174,9 +170,10 @@ public class PacketParserService extends Service {
         String[] filenamelist = new File(mFilePath).list(new FilenameFilter() {
             @Override
             public boolean accept(File file, String s) {
-                if(s.startsWith("app")){
+                if(s.matches("^(app)(\\([0-9]{14}\\))(\\.zip)$")){
                     return true;
                 }
+
                 return false;
             }
         });
