@@ -54,7 +54,7 @@ public class NusManager {
 
 
     private NusManagerCallBacks mCallbacks;
-    private boolean isDFUServiceFound = false;
+    private boolean isNUSServiceFound = false;
 
     private BluetoothGattCharacteristic mNusRxCharacteristic;
     private BluetoothGattCharacteristic mNusTxCharacteristic;
@@ -80,21 +80,21 @@ public class NusManager {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            isDFUServiceFound = false;
+            isNUSServiceFound = false;
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 List<BluetoothGattService> services = gatt.getServices();
                 for (BluetoothGattService service : services) {
                     Log.d(TAG, "Found Service: " + service.getUuid());
                     if (service.getUuid().equals(NUS_SERVICE_UUID)) {
                         Log.d(TAG, "NUS Service found!");
-                        isDFUServiceFound = true;
+                        isNUSServiceFound = true;
                         mNusRxCharacteristic = service.getCharacteristic(NUS_RX_CHAR_UUID);
                         mNusTxCharacteristic = service.getCharacteristic(NUS_TX_CHAR_UUID);
                         enableReceiveNotification();
                         mCallbacks.onInitialized();
                     }
                 }
-                if (isDFUServiceFound) {
+                if (isNUSServiceFound) {
                     mCallbacks.onServiceFound();
                 } else {
                     mCallbacks.onDeviceNotSupported();

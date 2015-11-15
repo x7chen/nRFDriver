@@ -1,11 +1,13 @@
 package com.x7chen.dev.l58tool;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -18,10 +20,16 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.x7chen.dev.l58tool.dfu.DfuService;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+
+import no.nordicsemi.android.dfu.DfuProgressListener;
+import no.nordicsemi.android.dfu.DfuProgressListenerAdapter;
+import no.nordicsemi.android.dfu.DfuServiceListenerHelper;
 
 public class TestFragment extends Fragment {
     // TODO: Rename parameter arguments, choose names that match
@@ -33,9 +41,61 @@ public class TestFragment extends Fragment {
     private String mParam1;
     private String mParam2;
 
+    ProgressBar mProgressBar;
+
     Intent PacketHandle = new Intent(PacketParserService.ACTION_PACKET_HANDLE);
     public PacketParserService packetParserService;
     private TestItemAdapter mtestItemAdapter;
+
+    private final DfuProgressListener mDfuProgressListener = new DfuProgressListenerAdapter() {
+        @Override
+        public void onDeviceConnecting(final String deviceAddress) {
+            mProgressBar.setIndeterminate(true);
+
+        }
+
+        @Override
+        public void onDfuProcessStarting(final String deviceAddress) {
+            mProgressBar.setIndeterminate(true);
+        }
+
+        @Override
+        public void onEnablingDfuMode(final String deviceAddress) {
+            mProgressBar.setIndeterminate(true);
+        }
+
+        @Override
+        public void onFirmwareValidating(final String deviceAddress) {
+            mProgressBar.setIndeterminate(true);
+        }
+
+        @Override
+        public void onDeviceDisconnecting(final String deviceAddress) {
+            mProgressBar.setIndeterminate(true);
+        }
+
+        @Override
+        public void onDfuCompleted(final String deviceAddress) {
+            mProgressBar.setVisibility(View.INVISIBLE);
+        }
+
+        @Override
+        public void onDfuAborted(final String deviceAddress) {
+
+        }
+
+        @Override
+        public void onProgressChanged(final String deviceAddress, final int percent, final float speed, final float avgSpeed, final int currentPart, final int partsTotal) {
+            mProgressBar.setIndeterminate(false);
+            mProgressBar.setVisibility(View.VISIBLE);
+            mProgressBar.setProgress(percent);
+        }
+
+        @Override
+        public void onError(final String deviceAddress, final int error, final int errorType, final String message) {
+
+        }
+    };
 
     /**
      * Use this factory method to create a new instance of
@@ -62,6 +122,13 @@ public class TestFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        DfuServiceListenerHelper.registerProgressListener(getActivity(), mDfuProgressListener);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        DfuServiceListenerHelper.unregisterProgressListener(getActivity(), mDfuProgressListener);
     }
 
     @Override
@@ -86,8 +153,9 @@ public class TestFragment extends Fragment {
         mtestItemAdapter.addItem(new TestItem("模拟数据", ""));
         mtestItemAdapter.addItem(new TestItem("打开实时数据", ""));
         mtestItemAdapter.addItem(new TestItem("发送汉字", ""));
-        getActivity().registerReceiver(MyReceiver, MyIntentFilter());
-        mProgressBar = (ProgressBar) getActivity().findViewById(R.id.progressBar);
+        mtestItemAdapter.addItem(new TestItem("升级固件", ""));
+
+
     }
 
     PacketParserService.CallBack callBack = new PacketParserService.CallBack() {
@@ -189,6 +257,7 @@ public class TestFragment extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View rootview = inflater.inflate(R.layout.fragment_test, container, false);
+        mProgressBar = (ProgressBar) rootview.findViewById(R.id.progressBar);
         ListView listView = (ListView) rootview.findViewById(R.id.listView_TestItem);
         listView.setAdapter(mtestItemAdapter);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -276,6 +345,9 @@ public class TestFragment extends Fragment {
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
+                            break;
+                        case 14:
+                            packetParserService.dfu();
                             break;
                         default:
 //                        PacketHandle.putExtra(PacketParserService.HANDLE,position+1);
@@ -378,64 +450,4 @@ public class TestFragment extends Fragment {
             this.testResult = testResult;
         }
     }
-
-    ProgressBar mProgressBar;
-
-    private void showProgressBar() {
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mProgressBar.setVisibility(View.VISIBLE);
-            }
-        });
-    }
-
-    private void hideProgressBar() {
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mProgressBar.setVisibility(View.INVISIBLE);
-            }
-        });
-    }
-
-    private void updateProgressBar(final int mPercentage) {
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mProgressBar.setProgress(mPercentage);
-            }
-        });
-    }
-
-    private BroadcastReceiver MyReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            if (PacketParserService.ACTION_PROGRESSBAR.equals(action)) {
-                int step = intent.getIntExtra("S", 0);
-                switch (step) {
-                    case 1:
-                        showProgressBar();
-                        break;
-                    case 2:
-                        int persent = intent.getIntExtra("P", 0);
-                        updateProgressBar(persent);
-                        break;
-                    case 3:
-                        hideProgressBar();
-                }
-            }
-        }
-    };
-
-    private static IntentFilter MyIntentFilter() {
-        final IntentFilter intentFilter = new IntentFilter();
-
-        intentFilter.addAction(PacketParserService.ACTION_PACKET_HANDLE);
-        intentFilter.addAction(PacketParserService.ACTION_PROGRESSBAR);
-
-        return intentFilter;
-    }
-
 }

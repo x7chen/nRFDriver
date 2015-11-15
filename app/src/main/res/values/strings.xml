@@ -33,4 +33,5 @@
 
     <!-- COMMAND ID-->
     <string name="SETTING_COMMAND">02</string>
+    <string name="title_activity_dfu">DfuActivity</string>
 </resources>

@@ -1,4 +1,4 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<AbsoluteLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
     android:layout_height="match_parent" tools:context="com.momo.dev.l58tool.TestFragment">
 
@@ -6,13 +6,21 @@
 
     <ListView
         android:layout_width="match_parent"
-        android:layout_height="394dp"
+        android:layout_height="457dp"
         android:id="@+id/listView_TestItem"
-        android:layout_gravity="top|left|center_vertical" />
+        android:layout_gravity="top|left|center_vertical"
+        android:layout_x="-1dp"
+        android:layout_y="43dp" />
 
     <ProgressBar
-        android:layout_width="match_parent"
-        android:layout_height="20dp"
+        android:layout_width="fill_parent"
+        android:layout_height="50dp"
         android:id="@+id/progressBar"
-        android:layout_gravity="left|bottom" />
-</FrameLayout>
+        android:layout_gravity="right|top"
+        android:layout_x="0dp"
+        android:layout_y="0dp"
+        android:indeterminate="true"
+        android:progress="100"
+        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+        android:visibility="invisible" />
+</AbsoluteLayout>

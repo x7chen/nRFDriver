@@ -14,19 +14,22 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
 
-import com.x7chen.dev.l58tool.dfu.DfuManager;
-import com.x7chen.dev.l58tool.dfu.DfuManagerCallbacks;
+import com.x7chen.dev.l58tool.dfu.DfuService;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Random;
+
+import no.nordicsemi.android.dfu.DfuServiceInitiator;
 
 /**
  * Created by Administrator on 2015/10/16.
@@ -46,8 +49,8 @@ public class PacketParserService extends Service {
     boolean BLE_CONNECT_STATUS = false;
     private int resent_cnt = 0;
     private NusManager mNusManager;
-    private DfuManager mDfuManager;
     private CallBack mPacketCallBack;
+    private BluetoothDevice mDevice;
 
     private ArrayList<Alarm> mAlarms = new ArrayList<Alarm>();
     private ArrayList<SportData> mSportData = new ArrayList<SportData>();
@@ -129,8 +132,6 @@ public class PacketParserService extends Service {
         receiveTimerThread.start();
         mNusManager = new NusManager();
         mNusManager.registerCallbacks(nusManagerCallBacks);
-        mDfuManager = new DfuManager();
-        mDfuManager.setGattCallbacks(dfuManagerCallbacks);
     }
 
     @Override
@@ -156,35 +157,46 @@ public class PacketParserService extends Service {
     }
 
     public void connect(String address) {
-        BluetoothDevice device = getDevice(address);
-        mNusManager.connect(getApplicationContext(), device);
+        mDevice = getDevice(address);
+        mNusManager.connect(getApplicationContext(), mDevice);
+    }
+
+    public BluetoothDevice getDevice() {
+        return mDevice;
     }
 
     public void disconnect() {
         mNusManager.disconnect();
     }
 
-    public void dfu(String address) {
-        String mFilePath = Environment.getExternalStorageDirectory().getAbsolutePath()+"/FitFone/dfu.zip";
-        if(!(new File(mFilePath).exists())){
-            return;
-        }
-        BluetoothDevice device = getDevice(address);
-        mDfuManager.connect(getApplicationContext(),device);
-        if (mFileTransferStatus == START_TRANSFER) {
-            mDfuManager.stopSendingPacket();
-        } else {
-            try {
-                if (isDFUServiceFound) {
-                    InputStream hexStream = new FileInputStream(mFilePath);
-                    mDfuManager.openFile(hexStream);
-                    mDfuManager.enableNotification();
-                } else {
+    public void dfu() {
+        String mFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/L58Tool/";
+        String[] filenamelist = new File(mFilePath).list(new FilenameFilter() {
+            @Override
+            public boolean accept(File file, String s) {
+                if(s.startsWith("app")){
+                    return true;
                 }
-            } catch (FileNotFoundException e) {
-
+                return false;
+            }
+        });
+        String newestFileName = "app(00000000000000).zip";
+        for (String filename:filenamelist){
+            if (filename.compareTo(newestFileName)>0){
+                newestFileName = filename;
             }
         }
+        File file = new File(mFilePath+newestFileName);
+        if (!file.exists()) {
+            return;
+        }
+
+        final boolean keepBond = true;
+        final DfuServiceInitiator starter = new DfuServiceInitiator(mDevice.getAddress())
+                .setDeviceName(mDevice.getName())
+                .setKeepBond(keepBond);
+        starter.setZip(mFilePath+newestFileName);
+        starter.start(this, DfuService.class);
     }
 
     public boolean getConnnetStatus() {
@@ -1348,72 +1360,6 @@ public class PacketParserService extends Service {
         @Override
         public void onDeviceNotSupported() {
             mPacketCallBack.onCharacteristicNotFound();
-        }
-    };
-    DfuManagerCallbacks dfuManagerCallbacks = new DfuManagerCallbacks() {
-
-        @Override
-        public void onDeviceConnected() {
-            Log.d(TAG, "onDeviceConnected()");
-            isDeviceConnected = true;
-        }
-
-        @Override
-        public void onDFUServiceFound() {
-            Log.d(TAG, "onDFUServiceFound");
-            isDFUServiceFound = true;
-        }
-
-        @Override
-        public void onDeviceDisconnected() {
-            Log.d(TAG, "onDeviceDisconnected()");
-            isDeviceConnected = false;
-            if (mFileTransferStatus == START_TRANSFER) {
-
-            }
-        }
-
-        @Override
-        public void onFileTransferStarted() {
-            Log.d(TAG, "onFileTransferStarted()");
-            Intent intent =new Intent(ACTION_PROGRESSBAR);
-            intent.putExtra("S",1);
-            sendBroadcast(intent);
-            mFileTransferStatus = START_TRANSFER;
-        }
-
-        @Override
-        public void onFileTranfering(long sizeTransfered) {
-            Log.d(TAG, "onFileTransfering(): " + sizeTransfered);
-            int mPercentage = (int) ((sizeTransfered * 100) / mDfuManager.getFileSize());
-            Intent intent =new Intent(ACTION_PROGRESSBAR);
-            intent.putExtra("S",2);
-            intent.putExtra("P",mPercentage);
-            sendBroadcast(intent);
-        }
-
-        @Override
-        public void onFileTransferCompleted() {
-            Log.d(TAG, "onFileTransferCompleted()");
-            mFileTransferStatus = FINISHED_TRANSFER;
-            Intent intent =new Intent(ACTION_PROGRESSBAR);
-            intent.putExtra("S",3);
-            sendBroadcast(intent);
-        }
-
-        @Override
-        public void onFileTransferValidation() {
-            Log.d(TAG, "onFileTransferValidation()");
-        }
-
-        @Override
-        public void onError(final String message, final int errorCode) {
-            Log.e(TAG, "onError() " + message + " ErrorCode: " + errorCode);
-        }
-
-        @Override
-        public void onDeviceNotSupported() {
-
         }
     };
 }
